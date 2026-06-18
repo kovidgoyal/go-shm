@@ -1,5 +1,5 @@
 // License: GPLv3 Copyright: 2022, Kovid Goyal, <kovid at kovidgoyal.net>
-//go:build linux || netbsd || openbsd || dragonfly
+//go:build linux || netbsd || openbsd || dragonfly || illumos
 
 package shm
 
