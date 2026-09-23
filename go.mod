@@ -1,4 +1,4 @@
-module github.com/kovidgoyal/go-shm
+module github.com/kovidgoyal/go-shm/v2
 
 go 1.24.0
 
