@@ -26,9 +26,19 @@ func (self *ErrNotSupported) Error() string {
 	return fmt.Sprintf("POSIX shared memory not supported on this platform: with underlying error: %v", self.err)
 }
 
+// PosixName returns name in the portable form mandated by POSIX for shared
+// memory object names, that is, a single leading slash followed by a name
+// containing no further slashes.
+func PosixName(name string) string {
+	return "/" + strings.TrimLeft(name, "/")
+}
+
 // prefix_and_suffix splits pattern by the last wildcard "*", if applicable,
 // returning prefix as the part before "*" and suffix as the part after "*".
+// Any leading slashes on pattern are ignored, the returned prefix always
+// starts with a single slash, so that generated names are POSIX portable.
 func prefix_and_suffix(pattern string) (prefix, suffix string, err error) {
+	pattern = strings.TrimLeft(pattern, "/")
 	for i := 0; i < len(pattern); i++ {
 		if os.IsPathSeparator(pattern[i]) {
 			return "", "", ErrPatternHasSeparator
@@ -39,13 +49,15 @@ func prefix_and_suffix(pattern string) (prefix, suffix string, err error) {
 	} else {
 		prefix = pattern
 	}
-	return prefix, suffix, nil
+	return "/" + prefix, suffix, nil
 }
 
 type MMap interface {
 	Close() error
 	Unlink() error
 	Slice() []byte
+	// Name is the POSIX name of the shared memory object, it always starts
+	// with a single slash and contains no other slashes.
 	Name() string
 	IsFileSystemBacked() bool
 	FileSystemName() string

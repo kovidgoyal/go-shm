@@ -2,6 +2,6 @@
 
 package shm
 
-// On most illumos distributions, /tmp is always mounted as tmpfs (in-memory), 
+// On most illumos distributions, /tmp is always mounted as tmpfs (in-memory),
 // providing equivalent semantics to POSIX shared memory.
 const SHM_DIR = "/tmp"

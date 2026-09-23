@@ -5,6 +5,7 @@ package shm
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -28,11 +29,7 @@ type file_based_mmap struct {
 }
 
 func ShmUnlink(name string) error {
-	if runtime.GOOS == "openbsd" {
-		return os.Remove(openbsd_shm_path(name))
-	}
-	name = strings.TrimPrefix(name, "/")
-	return os.Remove(filepath.Join(SHM_DIR, name))
+	return os.Remove(file_path_from_name(PosixName(name)))
 }
 
 func file_mmap(f *os.File, size uint64, access AccessFlags, truncate bool, special_name string) (MMap, error) {
@@ -79,7 +76,7 @@ func (self *file_based_mmap) Name() string {
 	if self.special_name != "" {
 		return self.special_name
 	}
-	return filepath.Base(self.f.Name())
+	return PosixName(filepath.Base(self.f.Name()))
 }
 
 func (self *file_based_mmap) Flush() error {
@@ -113,30 +110,39 @@ func (self *file_based_mmap) Unlink() (err error) {
 
 func (self *file_based_mmap) IsFileSystemBacked() bool { return true }
 
+// openbsd_shm_path mirrors makeshmpath() from OpenBSD libc:
+//
+//	SHA256Data(origpath, strlen(origpath), buf);
+//	snprintf(shmpath, len, "/tmp/%s.shm", buf);
+//
+// The name is hashed with its leading slash included and the digest is
+// rendered as a lowercase hex string.
+// See https://github.com/openbsd/src/blob/master/lib/libc/gen/shm_open.c
 func openbsd_shm_path(name string) string {
-	hash := sha256.Sum256(UnsafeStringToBytes(name))
-	return filepath.Join(SHM_DIR, UnsafeBytesToString(hash[:])+".shm")
+	hash := sha256.Sum256(UnsafeStringToBytes(PosixName(name)))
+	return filepath.Join(SHM_DIR, hex.EncodeToString(hash[:])+".shm")
 }
 
+// file_path_from_name maps a POSIX shared memory name, which starts with a
+// slash, onto the path of the file backing it.
 func file_path_from_name(name string) string {
-	// See https://github.com/openbsd/src/blob/master/lib/libc/gen/shm_open.c
 	if runtime.GOOS == "openbsd" {
 		return openbsd_shm_path(name)
 	}
-	return filepath.Join(SHM_DIR, name)
+	return filepath.Join(SHM_DIR, strings.TrimLeft(name, "/"))
 }
 
 func create_temp(pattern string, size uint64) (ans MMap, err error) {
-	special_name := ""
 	var prefix, suffix string
 	prefix, suffix, err = prefix_and_suffix(pattern)
 	if err != nil {
 		return
 	}
 	var f *os.File
+	var name string
 	try := 0
 	for {
-		name := prefix + RandomFilename() + suffix
+		name = prefix + RandomFilename() + suffix
 		path := file_path_from_name(name)
 		f, err = os.OpenFile(path, os.O_EXCL|os.O_CREATE|os.O_RDWR, 0600)
 		if err != nil {
@@ -154,7 +160,7 @@ func create_temp(pattern string, size uint64) (ans MMap, err error) {
 		}
 		break
 	}
-	return file_mmap(f, size, WRITE, true, special_name)
+	return file_mmap(f, size, WRITE, true, name)
 }
 
 func open(name string) (*os.File, error) {
@@ -171,6 +177,7 @@ func open(name string) (*os.File, error) {
 }
 
 func Open(name string, size uint64) (MMap, error) {
+	name = PosixName(name)
 	ans, err := open(name)
 	if err != nil {
 		return nil, err

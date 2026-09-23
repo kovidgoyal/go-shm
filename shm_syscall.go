@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -48,7 +47,7 @@ func shm_unlink(name string) (err error) {
 }
 
 func ShmUnlink(name string) error {
-	return shm_unlink(name)
+	return shm_unlink(PosixName(name))
 }
 
 func shm_open(name string, flags, perm int) (ans *os.File, err error) {
@@ -154,10 +153,6 @@ func create_temp(pattern string, size uint64) (ans MMap, err error) {
 	if err != nil {
 		return
 	}
-	if SHM_REQUIRED_PREFIX != "" && !strings.HasPrefix(pattern, SHM_REQUIRED_PREFIX) {
-		// FreeBSD requires name to start with /
-		prefix = SHM_REQUIRED_PREFIX + prefix
-	}
 	var f *os.File
 	try := 0
 	for {
@@ -182,7 +177,7 @@ func create_temp(pattern string, size uint64) (ans MMap, err error) {
 }
 
 func Open(name string, size uint64) (MMap, error) {
-	ans, err := shm_open(name, os.O_RDONLY, 0)
+	ans, err := shm_open(PosixName(name), os.O_RDONLY, 0)
 	if err != nil {
 		return nil, err
 	}

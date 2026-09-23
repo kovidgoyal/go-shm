@@ -2,6 +2,6 @@
 
 package shm
 
-const SHM_NAME_MAX = 30
-const SHM_REQUIRED_PREFIX = ""
+// The limit is PSHMNAMLEN and it includes the leading slash
+const SHM_NAME_MAX = 31
 const SHM_DIR = ""
